@@ -19,7 +19,26 @@ Early setup. No API or runtime guarantees yet.
 
 ## Getting started
 
-Instructions will land here once the first runnable module exists (`go mod init`, entrypoint, and how to run tests).
+From the repo root:
+
+```bash
+go run ./cmd/orbit
+```
+
+Then in another terminal:
+
+```bash
+curl -s http://localhost:8080/health
+```
+
+Optional: set a port with `PORT=3000 go run ./cmd/orbit`.
+
+Build a binary:
+
+```bash
+go build -o orbit ./cmd/orbit
+./orbit
+```
 
 ## License
 

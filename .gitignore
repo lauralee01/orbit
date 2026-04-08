@@ -1,0 +1,4 @@
+# Built binary when using: go build -o orbit ./cmd/orbit
+/orbit
+
+/docs
