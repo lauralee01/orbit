@@ -31,6 +31,14 @@ Then in another terminal:
 curl -s http://localhost:8080/health
 ```
 
+JSON echo (POST body → JSON response; learns `encoding/json`):
+
+```bash
+curl -s -X POST http://localhost:8080/api/echo \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"hello from Orbit"}'
+```
+
 Optional: set a port with `PORT=3000 go run ./cmd/orbit`.
 
 Build a binary:

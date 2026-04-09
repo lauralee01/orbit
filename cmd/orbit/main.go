@@ -5,11 +5,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/lauralee01/orbit/internal/handlers"
 )
 
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", health)
+	mux.HandleFunc("/api/echo", handlers.Echo)
 
 	addr := ":8080"
 	if p := os.Getenv("PORT"); p != "" {
