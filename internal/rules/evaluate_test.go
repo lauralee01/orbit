@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -16,5 +15,10 @@ func TestEvaluate(t *testing.T) {
 	}
 
 	got, err := Evaluate(facts, rules)
-    fmt.Println(got, err)
+	if err != nil {
+		t.Errorf("Evaluate() error = %v", err)
+	}
+	if !got {
+		t.Errorf("Evaluate() = %v, want %v", got, true)
+	}
 }
