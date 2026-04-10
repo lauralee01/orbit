@@ -5,9 +5,6 @@ import "fmt"
 func Evaluate(facts Facts, rules Rules) (bool, error) {
 	for _, rule := range rules {
 		fmt.Println("Evaluating rule:", rule.Field, rule.Operator, rule.Value)
-		fmt.Println("rule field:", rule.Field)
-		fmt.Println("rule operator:", rule.Operator)
-		fmt.Println("rule value:", rule.Value)
 		factValue, ok := facts[rule.Field]
 		fmt.Println("Fact value:", factValue, "Exists:", ok)
 		if !ok {

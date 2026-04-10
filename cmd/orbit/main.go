@@ -1,5 +1,8 @@
 package main
 
+// Phase 4 (persistence): follow the step-by-step tasks in internal/storage/doc.go before
+// adding DB calls here (Open DB, ping, then wire handlers or a small smoke test).
+
 import (
 	"fmt"
 	"log"
@@ -25,7 +28,7 @@ func main() {
 	}
 	
 	ruleset := rules.Rules{
-		{Field: "age", Operator: "equals", Value: "21"},
+		{Field: "age", Operator: "equals", Value: "25"},
 	}
 	
 	ok, err := rules.Evaluate(facts, ruleset)
