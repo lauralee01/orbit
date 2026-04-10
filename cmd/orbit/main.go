@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"github.com/lauralee01/orbit/internal/rules"
 
 	"github.com/lauralee01/orbit/internal/handlers"
 )
@@ -19,10 +20,23 @@ func main() {
 		addr = ":" + p
 	}
 
+	facts := rules.Facts{
+		"age": 21,
+	}
+	
+	ruleset := rules.Rules{
+		{Field: "age", Operator: "equals", Value: "21"},
+	}
+	
+	ok, err := rules.Evaluate(facts, ruleset)
+	fmt.Println(ok, err)
+
 	log.Printf("listening on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatal(err)
 	}
+
+	
 }
 
 func health(w http.ResponseWriter, r *http.Request) {
