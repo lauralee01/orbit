@@ -8,12 +8,19 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"context"
 	"github.com/lauralee01/orbit/internal/rules"
-
+	"github.com/lauralee01/orbit/internal/storage"
 	"github.com/lauralee01/orbit/internal/handlers"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", health)
 	mux.HandleFunc("/api/echo", handlers.Echo)
@@ -33,6 +40,27 @@ func main() {
 	
 	ok, err := rules.Evaluate(facts, ruleset)
 	fmt.Println(ok, err)
+
+	// open database connection
+	db, err := storage.Open(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// create ruleset
+	id, err := storage.CreateRuleset(context.Background(), db, "Test Ruleset")
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Ruleset created with ID:", id)
+
+	// list rulesets
+	rulesets, err := storage.ListRulesets(context.Background(), db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Rulesets:", rulesets)
 
 	log.Printf("listening on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
