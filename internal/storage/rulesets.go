@@ -6,8 +6,8 @@ import (
 )
 
 type StoredRuleset struct {
-	ID   int
-	Name string
+	ID   int64 `json:"id"`
+	Name string `json:"name"`
 }
 
 func CreateRuleset(ctx context.Context, db *sql.DB, name string) (int64, error) {

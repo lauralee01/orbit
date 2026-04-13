@@ -28,6 +28,7 @@ func CreateRuleset(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
 			return
 		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 
 		defer r.Body.Close()
 
