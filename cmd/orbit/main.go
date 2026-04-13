@@ -2,23 +2,26 @@ package main
 
 // Phase 4 (persistence): follow the step-by-step tasks in internal/storage/doc.go before
 // adding DB calls here (Open DB, ping, then wire handlers or a small smoke test).
+//
+// (4) go.mod hygiene: when you add or remove imports, run `go mod tidy` from the repo root
+// so direct dependencies are listed under `require` without spurious `// indirect` lines.
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"context"
-	"github.com/lauralee01/orbit/internal/rules"
-	"github.com/lauralee01/orbit/internal/storage"
-	"github.com/lauralee01/orbit/internal/handlers"
+
 	"github.com/joho/godotenv"
+
+	"github.com/lauralee01/orbit/internal/handlers"
+	"github.com/lauralee01/orbit/internal/storage"
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+		log.Printf("godotenv: %v (using environment variables only)", err)
 	}
 
 	mux := http.NewServeMux()
@@ -29,17 +32,6 @@ func main() {
 	if p := os.Getenv("PORT"); p != "" {
 		addr = ":" + p
 	}
-
-	facts := rules.Facts{
-		"age": 21,
-	}
-	
-	ruleset := rules.Rules{
-		{Field: "age", Operator: "equals", Value: "25"},
-	}
-	
-	ok, err := rules.Evaluate(facts, ruleset)
-	fmt.Println(ok, err)
 
 	// open database connection
 	db, err := storage.Open(context.Background(), os.Getenv("DATABASE_URL"))
@@ -67,7 +59,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	
 }
 
 func health(w http.ResponseWriter, r *http.Request) {

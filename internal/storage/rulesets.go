@@ -6,7 +6,7 @@ import (
 )
 
 type StoredRuleset struct {
-	ID int
+	ID   int
 	Name string
 }
 
@@ -25,11 +25,15 @@ func ListRulesets(ctx context.Context, db *sql.DB) ([]StoredRuleset, error) {
 
 	var out []StoredRuleset
 	for rows.Next() {
-		var r StoredRuleset 
+		var r StoredRuleset
 		if err := rows.Scan(&r.ID, &r.Name); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
+	}
+	// (1) rows.Err() after the loop: rows.Next() can return false when the result set
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
