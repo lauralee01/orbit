@@ -1,11 +1,5 @@
 package main
 
-// Phase 4 (persistence): follow the step-by-step tasks in internal/storage/doc.go before
-// adding DB calls here (Open DB, ping, then wire handlers or a small smoke test).
-//
-// (4) go.mod hygiene: when you add or remove imports, run `go mod tidy` from the repo root
-// so direct dependencies are listed under `require` without spurious `// indirect` lines.
-
 import (
 	"context"
 	"fmt"
@@ -24,35 +18,23 @@ func main() {
 		log.Printf("godotenv: %v (using environment variables only)", err)
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", health)
-	mux.HandleFunc("/api/echo", handlers.Echo)
-
-	addr := ":8080"
-	if p := os.Getenv("PORT"); p != "" {
-		addr = ":" + p
-	}
-
-	// open database connection
+	// Open DB once per process; pass `db` into handlers per rulesets_tasks.go (closures or struct).
 	db, err := storage.Open(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	// create ruleset
-	id, err := storage.CreateRuleset(context.Background(), db, "Test Ruleset")
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Ruleset created with ID:", id)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", health)
+	mux.HandleFunc("/api/echo", handlers.Echo)
+	mux.HandleFunc("GET /api/rulesets", handlers.ListRulesets(db))
+	mux.HandleFunc("POST /api/rulesets", handlers.CreateRuleset(db))
 
-	// list rulesets
-	rulesets, err := storage.ListRulesets(context.Background(), db)
-	if err != nil {
-		log.Fatal(err)
+	addr := ":8080"
+	if p := os.Getenv("PORT"); p != "" {
+		addr = ":" + p
 	}
-	log.Println("Rulesets:", rulesets)
 
 	log.Printf("listening on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
