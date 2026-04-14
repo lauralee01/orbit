@@ -20,9 +20,10 @@ type echoResponse struct {
 	OK      bool   `json:"ok"`
 }
 
-// errorResponse is a small, consistent shape for client mistakes.
+// errorResponse is a small, consistent shape for API errors.
 type errorResponse struct {
-	Error string `json:"error"`
+	Error  string `json:"error"`
+	Detail string `json:"detail,omitempty"`
 }
 
 // Echo handles POST /api/echo: read JSON body → struct → write JSON response.
@@ -38,7 +39,7 @@ func Echo(w http.ResponseWriter, r *http.Request) {
 
 	var req echoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON", Detail: err.Error()})
 		return
 	}
 

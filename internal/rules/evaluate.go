@@ -1,6 +1,6 @@
 package rules
-import "fmt"
 
+import "fmt"
 
 func Evaluate(facts Facts, rules Rules) (bool, error) {
 	for _, rule := range rules {
@@ -11,7 +11,7 @@ func Evaluate(facts Facts, rules Rules) (bool, error) {
 			return false, fmt.Errorf("fact %s is not found", rule.Field)
 		}
 		if rule.Operator == "equals" || rule.Operator == "==" {
-			if(fmt.Sprintf("%v", factValue) != rule.Value) {
+			if fmt.Sprintf("%v", factValue) != rule.Value {
 				return false, fmt.Errorf("fact value %v does not equal %s", factValue, rule.Value)
 
 			}
@@ -19,6 +19,3 @@ func Evaluate(facts Facts, rules Rules) (bool, error) {
 	}
 	return true, nil
 }
-
-
-

@@ -6,14 +6,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/joho/godotenv"
+	"github.com/lauralee01/orbit/internal/handlers"
+	"github.com/lauralee01/orbit/internal/storage"
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/joho/godotenv"
-
-	"github.com/lauralee01/orbit/internal/handlers"
-	"github.com/lauralee01/orbit/internal/storage"
 )
 
 func main() {

@@ -7,7 +7,7 @@ import (
 func TestEvaluate(t *testing.T) {
 	facts := Facts{
 		"name": "John",
-		"age": 30,
+		"age":  30,
 	}
 	rules := Rules{
 		{Field: "name", Operator: "==", Value: "John"},

@@ -1,4 +1,4 @@
-package storage 
+package storage
 
 import (
 	"context"
@@ -7,11 +7,11 @@ import (
 )
 
 type StoredRule struct {
-	ID int64 `json:"id"`
-	RulesetID int64 `json:"ruleset_id"`
-	Field string `json:"field"`
-	Operator string `json:"operator"`
-	Value string `json:"value"`
+	ID        int64  `json:"id"`
+	RulesetID int64  `json:"ruleset_id"`
+	Field     string `json:"field"`
+	Operator  string `json:"operator"`
+	Value     string `json:"value"`
 }
 
 func InsertRule(ctx context.Context, db *sql.DB, rulesetID int64, field string, operator string, value string) (int64, error) {
@@ -37,6 +37,5 @@ func ListRulesByRulesetID(ctx context.Context, db *sql.DB, rulesetID int64) ([]S
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed to get rules: %w", err)
 	}
-	return out, nil 
+	return out, nil
 }
-

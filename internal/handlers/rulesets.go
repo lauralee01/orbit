@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"net/http"
-	"log"
-	"encoding/json"
 	"database/sql"
+	"encoding/json"
 	"github.com/lauralee01/orbit/internal/storage"
+	"log"
+	"net/http"
 )
 
 type createRulesetRequest struct {
@@ -13,14 +13,13 @@ type createRulesetRequest struct {
 }
 
 type createRulesetResponse struct {
-	ID int64 `json:"id"`
+	ID   int64  `json:"id"`
 	Name string `json:"name"`
 }
 
 type listRulesetsResponse struct {
 	Rulesets []storage.StoredRuleset `json:"rulesets"`
 }
-
 
 func CreateRuleset(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -37,8 +36,8 @@ func CreateRuleset(db *sql.DB) http.HandlerFunc {
 		var req createRulesetRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON"})
-			return 
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON", Detail: err.Error()})
+			return
 		}
 		log.Printf("CreateRuleset: %v after decode", req)
 		if req.Name == "" {
@@ -48,7 +47,7 @@ func CreateRuleset(db *sql.DB) http.HandlerFunc {
 
 		id, err := storage.CreateRuleset(r.Context(), db, req.Name)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create ruleset"})
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create ruleset", Detail: err.Error()})
 			return
 		}
 		writeJSON(w, http.StatusCreated, createRulesetResponse{ID: id, Name: req.Name})
@@ -64,7 +63,7 @@ func ListRulesets(db *sql.DB) http.HandlerFunc {
 
 		rulesets, err := storage.ListRulesets(r.Context(), db)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list rulesets"})
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list rulesets", Detail: err.Error()})
 			return
 		}
 		writeJSON(w, http.StatusOK, listRulesetsResponse{Rulesets: rulesets})
