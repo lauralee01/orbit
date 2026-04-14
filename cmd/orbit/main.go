@@ -1,5 +1,8 @@
 package main
 
+// Finish phase 4: implement persistence + HTTP per internal/storage/rules_crud_tasks.go,
+// internal/handlers/rules_http_tasks.go, internal/handlers/evaluate_http_tasks.go — then register routes here.
+
 import (
 	"context"
 	"fmt"
