@@ -33,6 +33,8 @@ func main() {
 	mux.HandleFunc("/api/echo", handlers.Echo)
 	mux.HandleFunc("GET /api/rulesets", handlers.ListRulesets(db))
 	mux.HandleFunc("POST /api/rulesets", handlers.CreateRuleset(db))
+	mux.HandleFunc("GET /api/rules", handlers.ListRules(db))
+	mux.HandleFunc("POST /api/rules", handlers.CreateRule(db))
 
 	addr := ":8080"
 	if p := os.Getenv("PORT"); p != "" {
