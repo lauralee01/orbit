@@ -28,7 +28,6 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", health)
-	mux.HandleFunc("/api/echo", handlers.Echo)
 	mux.HandleFunc("GET /api/rulesets", handlers.ListRulesets(db))
 	mux.HandleFunc("POST /api/rulesets", handlers.CreateRuleset(db))
 	mux.HandleFunc("GET /api/rules", handlers.ListRules(db))

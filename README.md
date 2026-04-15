@@ -1,51 +1,65 @@
 # Orbit
 
-**Orbit** is a rules engine—built with **Go**.
-
-The goal is to accept structured input (“facts”), apply configurable rules, and return clear outcomes. Scope will stay small at first and expand as the foundations feel solid.
+**Orbit** is a small **rules engine** service in **Go**: you store **rulesets** and **rules** in **PostgreSQL**, send **facts** as JSON, and **evaluate** whether those facts satisfy the persisted rules.
 
 ## Why this project
 
-- Learn Go from scratch alongside real service patterns (HTTP, JSON, persistence, tests).
-- Explore how rule evaluation, storage, and APIs fit together without frontend complexity dominating the story.
+- Learn Go alongside real backend patterns: HTTP + JSON, `database/sql`, and tests.
+- Keep scope small: no custom rule language in v1—just field / operator / value conditions.
 
 ## Status
 
-Early setup. No API or runtime guarantees yet.
+Core flows are implemented: persistence, REST-style JSON APIs for rulesets and rules, and **POST /api/evaluate** to run **Evaluate** against stored rules.
+
 
 ## Requirements
 
-- [Go](https://go.dev/dl/) (install the latest stable release for your OS).
+- [Go](https://go.dev/dl/) (1.22+ recommended for method-specific `ServeMux` routes).
+- **PostgreSQL** and a database created for local dev.
+- **`DATABASE_URL`** — e.g. `postgres://USER:PASSWORD@localhost:5432/DBNAME?sslmode=disable`
 
-## Getting started
+Apply the schema in `migrations/001_init.sql` once (e.g. via `psql` or your GUI) before running the app.
 
-From the repo root:
+Optional: a `.env` file with `DATABASE_URL=` (loaded via `godotenv` in `main`); otherwise export the variable in your shell.
+
+## Run
 
 ```bash
 go run ./cmd/orbit
 ```
 
-Then in another terminal:
-
-```bash
-curl -s http://localhost:8080/health
-```
-
-JSON echo (POST body → JSON response; learns `encoding/json`):
-
-```bash
-curl -s -X POST http://localhost:8080/api/echo \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"hello from Orbit"}'
-```
-
-Optional: set a port with `PORT=3000 go run ./cmd/orbit`.
+Optional port: `PORT=3000 go run ./cmd/orbit`
 
 Build a binary:
 
 ```bash
 go build -o orbit ./cmd/orbit
 ./orbit
+```
+
+## API (overview)
+
+| Method | Path | Purpose |
+|--------|------|--------|
+| GET | `/health` | Liveness check |
+| GET / POST | `/api/rulesets` | List / create rulesets |
+| GET / POST | `/api/rules` | List rules (`GET ?ruleset_id=`) / create rule (JSON body includes `ruleset_id`) |
+| POST | `/api/evaluate` | Body: `ruleset_id` + `facts` object → `{ "ok": true \| false }` (errors may include `detail`) |
+
+## Quick manual check
+
+```bash
+curl -s http://localhost:8080/health
+```
+
+Create a ruleset, add a rule, then evaluate (adjust IDs to match your DB):
+
+```bash
+curl -s -X POST http://localhost:8080/api/rulesets -H 'Content-Type: application/json' -d '{"name":"policy"}'
+curl -s -X POST http://localhost:8080/api/rules -H 'Content-Type: application/json' \
+  -d '{"ruleset_id":1,"field":"age","operator":"equals","value":"30"}'
+curl -s -X POST http://localhost:8080/api/evaluate -H 'Content-Type: application/json' \
+  -d '{"ruleset_id":1,"facts":{"age":30}}'
 ```
 
 ## License
