@@ -20,7 +20,7 @@ Core flows are implemented: persistence, REST-style JSON APIs for rulesets and r
 
 Apply the schema in `migrations/001_init.sql` once (e.g. via `psql` or your GUI) before running the app.
 
-Optional: a `.env` file with `DATABASE_URL=` (loaded via `godotenv` in `main`); otherwise export the variable in your shell.
+Environment variables: copy **`.env.example`** to **`.env`**, edit values (`.env` is gitignored), or export vars in your shell. `godotenv` in `main` loads `.env` when present.
 
 ## Run
 

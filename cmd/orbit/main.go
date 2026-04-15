@@ -1,7 +1,7 @@
 package main
 
-// Finish phase 4: implement persistence + HTTP per internal/storage/rules_crud_tasks.go,
-// internal/handlers/rules_http_tasks.go, internal/handlers/evaluate_http_tasks.go — then register routes here.
+// Phase 4 (persistence + evaluate) is done. Phase 5 (hardening): see cmd/orbit/phase5_tasks.go and
+// internal/handlers/phase5_tasks.go, internal/rules/phase5_tasks.go, internal/storage/phase5_tasks.go.
 
 import (
 	"context"

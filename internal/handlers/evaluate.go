@@ -3,9 +3,11 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"net/http"
+
 	"github.com/lauralee01/orbit/internal/rules"
 	"github.com/lauralee01/orbit/internal/storage"
-	"net/http"
 )
 
 type evaluateRequest struct {
@@ -14,7 +16,8 @@ type evaluateRequest struct {
 }
 
 type evaluateResponse struct {
-	OK bool `json:"ok"`
+	OK     bool   `json:"ok"`
+	Reason string `json:"reason,omitempty"`
 }
 
 func Evaluate(db *sql.DB) http.HandlerFunc {
@@ -46,7 +49,19 @@ func Evaluate(db *sql.DB) http.HandlerFunc {
 		}
 		ok, err := rules.Evaluate(req.Facts, ruleSlice)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to evaluate rules", Detail: err.Error()})
+			if errors.Is(err, rules.ErrMissingFact) || errors.Is(err, rules.ErrFactValueMismatch) {
+				writeJSON(w, http.StatusOK, evaluateResponse{
+					OK:     false,
+					Reason: err.Error(),
+				})
+				return
+			}
+
+			// real error
+			writeJSON(w, http.StatusInternalServerError, errorResponse{
+				Error:  "failed to evaluate rules",
+				Detail: err.Error(),
+			})
 			return
 		}
 		writeJSON(w, http.StatusOK, evaluateResponse{OK: ok})
