@@ -45,7 +45,7 @@ func CreateRuleset(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		id, err := storage.CreateRuleset(r.Context(), db, req.Name)
+		id, err := storage.CreateRuleset(r.Context(), db, req.Name, "")
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create ruleset", Detail: err.Error()})
 			return

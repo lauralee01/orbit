@@ -1,0 +1,1 @@
+ALTER TABLE rulesets ADD COLUMN webhook_url TEXT;

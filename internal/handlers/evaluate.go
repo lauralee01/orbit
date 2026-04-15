@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/lauralee01/orbit/internal/rules"
 	"github.com/lauralee01/orbit/internal/storage"
@@ -47,23 +51,64 @@ func Evaluate(db *sql.DB) http.HandlerFunc {
 		for i, row := range storedRules {
 			ruleSlice[i] = rules.Rule{Field: row.Field, Operator: row.Operator, Value: row.Value}
 		}
-		ok, err := rules.Evaluate(req.Facts, ruleSlice)
-		if err != nil {
-			if errors.Is(err, rules.ErrMissingFact) || errors.Is(err, rules.ErrFactValueMismatch) {
-				writeJSON(w, http.StatusOK, evaluateResponse{
-					OK:     false,
-					Reason: err.Error(),
-				})
-				return
-			}
+		ok, evalErr := rules.Evaluate(req.Facts, ruleSlice)
 
-			// real error
+		var evalOK bool
+		var evalReason string
+
+		switch {
+		case evalErr != nil && (errors.Is(evalErr, rules.ErrMissingFact) || errors.Is(evalErr, rules.ErrFactValueMismatch)):
+			evalOK = false
+			evalReason = evalErr.Error()
+		case evalErr != nil:
 			writeJSON(w, http.StatusInternalServerError, errorResponse{
 				Error:  "failed to evaluate rules",
-				Detail: err.Error(),
+				Detail: evalErr.Error(),
 			})
 			return
+		default:
+			evalOK = ok
 		}
-		writeJSON(w, http.StatusOK, evaluateResponse{OK: ok})
+
+		ruleset, err := storage.GetRulesetByID(r.Context(), db, req.RulesetID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to get ruleset", Detail: err.Error()})
+			return
+		}
+
+		if ruleset.WebhookURL != "" {
+			payload := map[string]any{
+				"ruleset_id":   req.RulesetID,
+				"ok":           evalOK,
+				"evaluated_at": time.Now().Format(time.RFC3339),
+			}
+			if evalReason != "" {
+				payload["reason"] = evalReason
+			}
+			jsonData, err := json.Marshal(payload)
+			if err != nil {
+				log.Printf("webhook: marshal: %v", err)
+			} else {
+				postCtx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+				defer cancel()
+				hreq, err := http.NewRequestWithContext(postCtx, http.MethodPost, ruleset.WebhookURL, bytes.NewReader(jsonData))
+				if err != nil {
+					log.Printf("webhook: new request: %v", err)
+				} else {
+					hreq.Header.Set("Content-Type", "application/json")
+					resp, err := http.DefaultClient.Do(hreq)
+					if err != nil {
+						log.Printf("webhook: post: %v", err)
+					} else {
+						resp.Body.Close()
+						if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+							log.Printf("webhook: bad status: %s", resp.Status)
+						}
+					}
+				}
+			}
+		}
+
+		writeJSON(w, http.StatusOK, evaluateResponse{OK: evalOK, Reason: evalReason})
 	}
 }
