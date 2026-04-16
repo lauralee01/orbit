@@ -9,26 +9,34 @@
 
 ## Status
 
-Core flows are implemented: persistence, REST-style JSON APIs for rulesets and rules, and **POST /api/evaluate** to run **Evaluate** against stored rules.
-
+Core flows are implemented: persistence, REST-style JSON APIs for rulesets and rules, and **POST /api/evaluate** to run evaluation against stored rules. The **`rulesets`** table has an optional **`webhook_url`**; if set (e.g. via SQL), evaluation will POST the outcome to that URL. The create-ruleset endpoint does not yet accept `webhook_url` in JSON.
 
 ## Requirements
 
-- [Go](https://go.dev/dl/) (1.22+ recommended for method-specific `ServeMux` routes).
-- **PostgreSQL** and a database created for local dev.
-- **`DATABASE_URL`** — e.g. `postgres://USER:PASSWORD@localhost:5432/DBNAME?sslmode=disable`
+- [Go](https://go.dev/dl/) **1.26+** (see `go.mod`).
+- **PostgreSQL** reachable via a connection URI.
+- **Environment:** the process reads **`DATABASE_URL`** (required) and **`PORT`** (optional; defaults to `8080` when unset).
 
-Apply the schema in `migrations/001_init.sql` once (e.g. via `psql` or your GUI) before running the app.
+## Clone and run locally
 
-Environment variables: copy **`.env.example`** to **`.env`**, edit values (`.env` is gitignored), or export vars in your shell. `godotenv` in `main` loads `.env` when present.
+```bash
+git clone https://github.com/lauralee01/orbit.git
+cd orbit
+```
 
-## Run
+Copy **`.env.example`** to **`.env`**, set **`DATABASE_URL`** to your local Postgres URL, then:
 
 ```bash
 go run ./cmd/orbit
 ```
 
-Optional port: `PORT=3000 go run ./cmd/orbit`
+`godotenv` loads **`.env`** when the file exists; if it does not (e.g. in Docker), only OS environment variables are used.
+
+Optional port override:
+
+```bash
+PORT=3000 go run ./cmd/orbit
+```
 
 Build a binary:
 
@@ -37,6 +45,52 @@ go build -o orbit ./cmd/orbit
 ./orbit
 ```
 
+## Database migrations
+
+Create an empty database, then apply SQL in **order** (Neon SQL Editor, `psql`, or any Postgres client):
+
+1. `migrations/001_init.sql` — tables `rulesets` and `rules`
+2. `migrations/002_webhook.sql` — `webhook_url` on `rulesets`
+
+Example with `psql`:
+
+```bash
+psql "$DATABASE_URL" -f migrations/001_init.sql
+psql "$DATABASE_URL" -f migrations/002_webhook.sql
+```
+
+## Environment variables
+
+| Variable | Required | Notes |
+|----------|----------|--------|
+| `DATABASE_URL` | Yes | Postgres URI, e.g. `postgres://user:pass@host:5432/dbname?sslmode=disable` (local) or your host’s URI with `sslmode=require` when TLS is required. |
+| `PORT` | No | Listen port; Render and similar platforms set this automatically. |
+
+See **`.env.example`** for a template. Extra keys there are for documentation only until wired in code. Do **not** commit secrets; **`.env`** is gitignored.
+
+## Docker
+
+From the repository root:
+
+```bash
+docker build -t orbit .
+docker run --rm -p 8080:8080 -e DATABASE_URL="postgres://..." orbit
+```
+
+Then open `http://localhost:8080/health`.
+
+## Deployment (example: Render + Neon)
+
+This repo includes a **`Dockerfile`** for container builds. A typical setup:
+
+1. **Neon:** create a project, run the migrations above on that database, copy the connection string (often includes `sslmode=require`).
+2. **Render:** new **Web Service**, connect the Git repo, runtime **Docker**, root directory empty if the `Dockerfile` is at the repo root.
+3. **Environment** on Render: set **`DATABASE_URL`** to the Neon URI. Do not set **`PORT`** unless you have a reason—Render injects it.
+4. **Health check:** HTTP GET path **`/health`**.
+5. Deploy; smoke-test **`GET https://<your-service>.onrender.com/health`** and the API examples below.
+
+On first boot without a `.env` file you may see a `godotenv: open .env: no such file` log line; that is expected and harmless in production.
+
 ## API (overview)
 
 | Method | Path | Purpose |
@@ -44,7 +98,7 @@ go build -o orbit ./cmd/orbit
 | GET | `/health` | Liveness check |
 | GET / POST | `/api/rulesets` | List / create rulesets |
 | GET / POST | `/api/rules` | List rules (`GET ?ruleset_id=`) / create rule (JSON body includes `ruleset_id`) |
-| POST | `/api/evaluate` | Body: `ruleset_id` + `facts` object → `{ "ok": true \| false }` (errors may include `detail`) |
+| POST | `/api/evaluate` | Body: `ruleset_id` + `facts` → `{ "ok": true \| false, ... }` (errors may include `detail`) |
 
 ## Quick manual check
 
