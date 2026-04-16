@@ -1,0 +1,10 @@
+.git
+.gitignore
+*.md
+.env
+.env.*
+!.env.example
+orbit
+*.test
+__pycache__
+.DS_Store
