@@ -9,7 +9,9 @@
 
 ## Status
 
-Core flows are implemented: persistence, REST-style JSON APIs for rulesets and rules, and **POST /api/evaluate** to run evaluation against stored rules. The **`rulesets`** table has an optional **`webhook_url`**; if set (e.g. via SQL), evaluation will POST the outcome to that URL. The create-ruleset endpoint does not yet accept `webhook_url` in JSON.
+Core flows are implemented: persistence, REST-style JSON APIs for rulesets and rules, and **POST /api/evaluate** to run evaluation against stored rules.
+
+**Rulesets** support optional **`webhook_url`** and **schedule** metadata (`schedule_cron`, `schedule_tz`, `schedule_enabled`). Create accepts these fields in JSON. If **`schedule_enabled`** is true, **`schedule_cron`** (standard 5-field cron) and **`schedule_tz`** (IANA zone, e.g. `America/New_York`) are required and validated; **`POST /api/evaluate`** does not gate on the schedule yet (schedule is metadata for future automation).
 
 ## Requirements
 
@@ -51,12 +53,14 @@ Create an empty database, then apply SQL in **order** (Neon SQL Editor, `psql`, 
 
 1. `migrations/001_init.sql` — tables `rulesets` and `rules`
 2. `migrations/002_webhook.sql` — `webhook_url` on `rulesets`
+3. `migrations/003_schedule.sql` — `schedule_cron`, `schedule_tz`, `schedule_enabled` on `rulesets`
 
 Example with `psql`:
 
 ```bash
 psql "$DATABASE_URL" -f migrations/001_init.sql
 psql "$DATABASE_URL" -f migrations/002_webhook.sql
+psql "$DATABASE_URL" -f migrations/003_schedule.sql
 ```
 
 ## Environment variables
@@ -96,9 +100,22 @@ On first boot without a `.env` file you may see a `godotenv: open .env: no such 
 | Method | Path | Purpose |
 |--------|------|--------|
 | GET | `/health` | Liveness check |
-| GET / POST | `/api/rulesets` | List / create rulesets |
+| GET / POST | `/api/rulesets` | List / create rulesets (create accepts optional `webhook_url`, schedule fields; see below) |
 | GET / POST | `/api/rules` | List rules (`GET ?ruleset_id=`) / create rule (JSON body includes `ruleset_id`) |
 | POST | `/api/evaluate` | Body: `ruleset_id` + `facts` → `{ "ok": true \| false, ... }` (errors may include `detail`) |
+
+### Ruleset schedule fields (create body)
+
+Optional JSON keys:
+
+| Field | Type | Notes |
+|-------|------|--------|
+| `webhook_url` | string | Omitted or empty if unused. |
+| `schedule_cron` | string | Standard 5-field cron (validated when schedule is enabled). |
+| `schedule_tz` | string | IANA timezone (e.g. `UTC`, `Europe/London`); required when `schedule_enabled` is true. |
+| `schedule_enabled` | bool | Default false. If true, `schedule_cron` and `schedule_tz` must be non-empty and valid. |
+
+If `schedule_enabled` is false, empty `schedule_cron` is stored as disabled; empty `schedule_tz` defaults to `UTC` in storage.
 
 ## Quick manual check
 
@@ -114,6 +131,19 @@ curl -s -X POST http://localhost:8080/api/rules -H 'Content-Type: application/js
   -d '{"ruleset_id":1,"field":"age","operator":"equals","value":"30"}'
 curl -s -X POST http://localhost:8080/api/evaluate -H 'Content-Type: application/json' \
   -d '{"ruleset_id":1,"facts":{"age":30}}'
+```
+
+Optional: create a ruleset with a schedule (validated cron + timezone):
+
+```bash
+curl -s -X POST http://localhost:8080/api/rulesets -H 'Content-Type: application/json' \
+  -d '{"name":"timed","schedule_cron":"0 9 * * *","schedule_tz":"America/New_York","schedule_enabled":true}'
+```
+
+## Tests
+
+```bash
+go test ./...
 ```
 
 ## License
