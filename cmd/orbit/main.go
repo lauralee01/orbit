@@ -9,6 +9,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/lauralee01/orbit/internal/handlers"
 	"github.com/lauralee01/orbit/internal/storage"
+	"github.com/lauralee01/orbit/internal/schedulers"
+	"github.com/lauralee01/orbit/internal/rules"
 	"log"
 	"net/http"
 	"os"
@@ -34,6 +36,10 @@ func main() {
 	mux.HandleFunc("POST /api/rules", handlers.CreateRule(db))
 	mux.HandleFunc("POST /api/evaluate", handlers.Evaluate(db))
 
+	ctx := context.Background()
+	scheduler := schedulers.New(db, factsProvider)
+	scheduler.Start(ctx)
+
 	addr := ":8080"
 	if p := os.Getenv("PORT"); p != "" {
 		addr = ":" + p
@@ -44,6 +50,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+}
+
+func factsProvider(ctx context.Context, rs storage.StoredRuleset) (rules.Facts, error) {
+	return rules.Facts{
+		"city": "Seattle",
+	}, nil
 }
 
 func health(w http.ResponseWriter, r *http.Request) {
