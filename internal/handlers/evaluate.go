@@ -5,13 +5,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
+	"github.com/lauralee01/orbit/internal/evaluator"
+	"github.com/lauralee01/orbit/internal/storage"
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/lauralee01/orbit/internal/rules"
-	"github.com/lauralee01/orbit/internal/storage"
 )
 
 type evaluateRequest struct {
@@ -30,6 +28,7 @@ func Evaluate(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
 			return
 		}
+
 		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		defer r.Body.Close()
 
@@ -38,77 +37,64 @@ func Evaluate(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON", Detail: err.Error()})
 			return
 		}
+
 		if req.RulesetID <= 0 || req.Facts == nil {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request"})
 			return
 		}
-		storedRules, err := storage.ListRulesByRulesetID(r.Context(), db, req.RulesetID)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list rules", Detail: err.Error()})
-			return
-		}
-		ruleSlice := make(rules.Rules, len(storedRules))
-		for i, row := range storedRules {
-			ruleSlice[i] = rules.Rule{Field: row.Field, Operator: row.Operator, Value: row.Value}
-		}
-		ok, evalErr := rules.Evaluate(req.Facts, ruleSlice)
 
-		var evalOK bool
-		var evalReason string
-
-		switch {
-		case evalErr != nil && (errors.Is(evalErr, rules.ErrMissingFact) || errors.Is(evalErr, rules.ErrFactValueMismatch)):
-			evalOK = false
-			evalReason = evalErr.Error()
-		case evalErr != nil:
-			writeJSON(w, http.StatusInternalServerError, errorResponse{
-				Error:  "failed to evaluate rules",
-				Detail: evalErr.Error(),
-			})
-			return
-		default:
-			evalOK = ok
-		}
-
+		// Load ruleset
 		ruleset, err := storage.GetRulesetByID(r.Context(), db, req.RulesetID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to get ruleset", Detail: err.Error()})
 			return
 		}
 
+		// Build evaluation context
+		evalCtx := evaluator.EvalContext{
+			TriggerSource: evaluator.TriggerSourceManual,
+			TriggerAt:     time.Now(),
+		}
+
+		// Shared evaluation path
+		result, err := evaluator.EvaluateRuleset(r.Context(), db, ruleset, req.Facts, evalCtx)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+
+		// Webhook (now using result + evalCtx)
 		if ruleset.WebhookURL != "" {
 			payload := map[string]any{
-				"ruleset_id":   req.RulesetID,
-				"ok":           evalOK,
-				"evaluated_at": time.Now().Format(time.RFC3339),
+				"ruleset_id":     ruleset.ID,
+				"ok":             result.OK,
+				"reason":         result.Reason,
+				"evaluated_at":   evalCtx.TriggerAt.Format(time.RFC3339),
+				"trigger_source": evalCtx.TriggerSource,
 			}
-			if evalReason != "" {
-				payload["reason"] = evalReason
-			}
-			jsonData, err := json.Marshal(payload)
+
+			jsonData, _ := json.Marshal(payload)
+
+			postCtx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			defer cancel()
+
+			req, _ := http.NewRequestWithContext(postCtx, http.MethodPost, ruleset.WebhookURL, bytes.NewReader(jsonData))
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
-				log.Printf("webhook: marshal: %v", err)
+				log.Printf("webhook: post: %v", err)
 			} else {
-				postCtx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-				defer cancel()
-				hreq, err := http.NewRequestWithContext(postCtx, http.MethodPost, ruleset.WebhookURL, bytes.NewReader(jsonData))
-				if err != nil {
-					log.Printf("webhook: new request: %v", err)
-				} else {
-					hreq.Header.Set("Content-Type", "application/json")
-					resp, err := http.DefaultClient.Do(hreq)
-					if err != nil {
-						log.Printf("webhook: post: %v", err)
-					} else {
-						resp.Body.Close()
-						if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-							log.Printf("webhook: bad status: %s", resp.Status)
-						}
-					}
+				resp.Body.Close()
+				if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+					log.Printf("webhook: bad status: %s", resp.Status)
 				}
 			}
 		}
 
-		writeJSON(w, http.StatusOK, evaluateResponse{OK: evalOK, Reason: evalReason})
+		writeJSON(w, http.StatusOK, evaluateResponse{
+			OK:     result.OK,
+			Reason: result.Reason,
+		})
 	}
 }
