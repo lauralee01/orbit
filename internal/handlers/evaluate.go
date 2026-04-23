@@ -83,7 +83,12 @@ func Evaluate(db *sql.DB) http.HandlerFunc {
 
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
-				log.Printf("webhook: post: %v", err)
+				log.Printf(
+					"webhook: ruleset_id=%d trigger=%s error=%v",
+					ruleset.ID,
+					evalCtx.TriggerSource,
+					err,
+				)
 			} else {
 				resp.Body.Close()
 				if resp.StatusCode < 200 || resp.StatusCode >= 300 {

@@ -26,7 +26,7 @@ type Scheduler struct {
 	db            *sql.DB       // Database connection for loading rulesets + rules
 	cron          *cron.Cron    // The cron engine that actually runs scheduled jobs
 	factsProvider FactsProvider // Function that provides facts for evaluation
-
+	dispatcher    evaluator.EvaluationDispatcher
 	mu       sync.Mutex             // Protects entries + lastSpec from concurrent access
 	entries  map[int64]cron.EntryID // Maps ruleset ID → cron job ID (so we can remove/update jobs)
 	lastSpec map[int64]string       // Tracks last cron spec used for each ruleset (detects changes)
@@ -39,6 +39,7 @@ func New(db *sql.DB, factsProvider FactsProvider) *Scheduler {
 		db:            db,
 		cron:          cron.New(), // Create a new cron scheduler
 		factsProvider: factsProvider,
+		dispatcher:    &evaluator.DirectDispatcher{DB: db},
 		entries:       make(map[int64]cron.EntryID),
 		lastSpec:      make(map[int64]string),
 	}
@@ -224,12 +225,5 @@ func (s *Scheduler) runRuleset(ctx context.Context, rs storage.StoredRuleset) {
 		TriggerAt:     time.Now(),
 	}
 
-	result, err := evaluator.EvaluateRuleset(ctx, s.db, rs, facts, evalCtx)
-	if err != nil {
-		log.Printf("scheduler: ruleset %d evaluation error: %v", rs.ID, err)
-		return
-	}
-
-	log.Printf("scheduler: ruleset %d evaluation ok=%v reason=%s", rs.ID, result.OK, result.Reason)
-
+	s.dispatcher.DispatchEvaluation(ctx, rs, facts, evalCtx)
 }
