@@ -65,12 +65,12 @@ func Evaluate(db *sql.DB) http.HandlerFunc {
 
 		// Webhook (now using result + evalCtx)
 		if ruleset.WebhookURL != "" {
-			payload := map[string]any{
-				"ruleset_id":     ruleset.ID,
-				"ok":             result.OK,
-				"reason":         result.Reason,
-				"evaluated_at":   evalCtx.TriggerAt.Format(time.RFC3339),
-				"trigger_source": evalCtx.TriggerSource,
+			payload := evaluator.WebhookPayload{
+				RulesetID:     ruleset.ID,
+				OK:             result.OK,
+				Reason:         result.Reason,
+				EvaluatedAt:   evalCtx.TriggerAt.Format(time.RFC3339),
+				TriggerSource: string(evalCtx.TriggerSource),
 			}
 
 			jsonData, _ := json.Marshal(payload)
