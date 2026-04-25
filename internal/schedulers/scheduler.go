@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-    "github.com/lauralee01/orbit/internal/evaluator"
+	"github.com/lauralee01/orbit/internal/evaluator"
 	"github.com/lauralee01/orbit/internal/rules"
 	"github.com/lauralee01/orbit/internal/storage"
 	"github.com/robfig/cron/v3"
@@ -27,9 +27,9 @@ type Scheduler struct {
 	cron          *cron.Cron    // The cron engine that actually runs scheduled jobs
 	factsProvider FactsProvider // Function that provides facts for evaluation
 	dispatcher    evaluator.EvaluationDispatcher
-	mu       sync.Mutex             // Protects entries + lastSpec from concurrent access
-	entries  map[int64]cron.EntryID // Maps ruleset ID → cron job ID (so we can remove/update jobs)
-	lastSpec map[int64]string       // Tracks last cron spec used for each ruleset (detects changes)
+	mu            sync.Mutex             // Protects entries + lastSpec from concurrent access
+	entries       map[int64]cron.EntryID // Maps ruleset ID → cron job ID (so we can remove/update jobs)
+	lastSpec      map[int64]string       // Tracks last cron spec used for each ruleset (detects changes)
 }
 
 // New creates a new Scheduler instance.

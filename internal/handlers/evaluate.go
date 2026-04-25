@@ -1,13 +1,10 @@
 package handlers
 
 import (
-	"bytes"
-	"context"
 	"database/sql"
 	"encoding/json"
 	"github.com/lauralee01/orbit/internal/evaluator"
 	"github.com/lauralee01/orbit/internal/storage"
-	"log"
 	"net/http"
 	"time"
 )
@@ -67,34 +64,13 @@ func Evaluate(db *sql.DB) http.HandlerFunc {
 		if ruleset.WebhookURL != "" {
 			payload := evaluator.WebhookPayload{
 				RulesetID:     ruleset.ID,
-				OK:             result.OK,
-				Reason:         result.Reason,
+				OK:            result.OK,
+				Reason:        result.Reason,
 				EvaluatedAt:   evalCtx.TriggerAt.Format(time.RFC3339),
 				TriggerSource: string(evalCtx.TriggerSource),
 			}
 
-			jsonData, _ := json.Marshal(payload)
-
-			postCtx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-			defer cancel()
-
-			req, _ := http.NewRequestWithContext(postCtx, http.MethodPost, ruleset.WebhookURL, bytes.NewReader(jsonData))
-			req.Header.Set("Content-Type", "application/json")
-
-			resp, err := http.DefaultClient.Do(req)
-			if err != nil {
-				log.Printf(
-					"webhook: ruleset_id=%d trigger=%s error=%v",
-					ruleset.ID,
-					evalCtx.TriggerSource,
-					err,
-				)
-			} else {
-				resp.Body.Close()
-				if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-					log.Printf("webhook: bad status: %s", resp.Status)
-				}
-			}
+			evaluator.SendWebhook(r.Context(), ruleset.WebhookURL, payload)
 		}
 
 		writeJSON(w, http.StatusOK, evaluateResponse{
