@@ -48,6 +48,15 @@ func equals(factValue any, ruleValue string) bool {
 	}
 }
 
+// compareFloat performs a numeric comparison between a fact value and a rule value.
+// It does three things:
+//   1. Coerces the fact value (which may be float64, int, etc.) into a float64.
+//   2. Parses the rule's string value into a float64.
+//   3. Applies the provided comparison function (cmp) to determine if the rule passes.
+//
+// If the fact is not numeric, the rule value cannot be parsed, or the comparison fails,
+// it returns an ErrFactValueMismatch with a descriptive message.
+
 func compareFloat(factValue any, ruleValue, mismatchMsg string, cmp func(fv, rv float64) bool) error {
 	fv, err := asFloat64(factValue)
 	if err != nil {
@@ -62,6 +71,24 @@ func compareFloat(factValue any, ruleValue, mismatchMsg string, cmp func(fv, rv 
 	}
 	return nil
 }
+
+// Evaluate checks a set of facts against a list of rules.
+// It processes each rule sequentially and returns:
+//
+//   - (true, nil) if *all* rules pass
+//   - (false, error) as soon as any rule fails
+//
+// Rule evaluation is type-aware:
+//   - "equals" supports numeric, string, and boolean comparisons
+//   - numeric operators (>, <, >=, <=) require both sides to be numeric
+//
+// Errors are descriptive and include:
+//   - ErrMissingFact when a required fact is not present
+//   - ErrFactValueMismatch when a rule fails
+//   - ErrUnsupportedOperator for unknown operators
+//
+// This function short-circuits on the first failure, which keeps evaluation fast
+// and makes the returned error directly explain the reason for failure.
 
 func Evaluate(facts Facts, rules Rules) (bool, error) {
 	for _, rule := range rules {
