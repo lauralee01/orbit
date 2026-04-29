@@ -29,6 +29,25 @@ func asFloat64(v any) (float64, error) {
 	}
 }
 
+// equals performs a type‑aware equality comparison between a fact value and a rule value.
+// It supports three comparison modes:
+//
+//   1. Numeric comparison:
+//      If the fact value is numeric (int, float, etc.) AND the rule value parses as a float,
+//      both are compared numerically. This allows 30 and "30" to be treated as equal.
+//
+//   2. String comparison:
+//      If the fact value is a string, it is compared directly to the rule value.
+//
+//   3. Boolean comparison:
+//      If the fact value is a bool, the rule value is parsed as a boolean ("true"/"false")
+//      and compared accordingly.
+//
+//   4. Fallback comparison:
+//      For all other types, both values are stringified and compared as strings.
+//
+// This function returns true if the values are considered equal under these rules.
+
 func equals(factValue any, ruleValue string) bool {
 	// Numeric facts compare numerically when possible so 30 and "30" match.
 	if fv, err := asFloat64(factValue); err == nil {
