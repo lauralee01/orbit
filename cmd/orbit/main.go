@@ -1,15 +1,13 @@
 package main
 
-// Phase 4 (persistence + evaluate) is done. Phase 5 (hardening): see cmd/orbit/phase5_tasks.go and
-// internal/handlers/phase5_tasks.go, internal/rules/phase5_tasks.go, internal/storage/phase5_tasks.go.
-
 import (
 	"context"
 	"fmt"
 	"github.com/joho/godotenv"
+	"github.com/lauralee01/orbit/internal/facts"
 	"github.com/lauralee01/orbit/internal/handlers"
 	"github.com/lauralee01/orbit/internal/rules"
-	// "github.com/lauralee01/orbit/internal/schedulers"
+	"github.com/lauralee01/orbit/internal/schedulers"
 	"github.com/lauralee01/orbit/internal/storage"
 	"log"
 	"net/http"
@@ -17,46 +15,50 @@ import (
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Printf("godotenv: %v (using environment variables only)", err)
-	}
+    if err := godotenv.Load(); err != nil {
+        log.Printf("godotenv: %v (using environment variables only)", err)
+    }
 
-	// Open DB once per process; pass `db` into handlers per rulesets_tasks.go (closures or struct).
-	db, err := storage.Open(context.Background(), os.Getenv("DATABASE_URL"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+    // Open DB once per process
+    db, err := storage.Open(context.Background(), os.Getenv("DATABASE_URL"))
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer db.Close()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", health)
-	mux.HandleFunc("GET /api/rulesets", handlers.ListRulesets(db))
-	mux.HandleFunc("POST /api/rulesets", handlers.CreateRuleset(db))
-	mux.HandleFunc("GET /api/rules", handlers.ListRules(db))
-	mux.HandleFunc("POST /api/rules", handlers.CreateRule(db))
-	mux.HandleFunc("POST /api/evaluate", handlers.Evaluate(db))
+    // --- Create the real facts provider ---
+    factsProviderDB := facts.NewDBProvider(db)
 
-	// ctx := context.Background()
-	// scheduler := schedulers.New(db, factsProvider)
-	// scheduler.Start(ctx)
+    factsProvider := func(ctx context.Context, rs storage.StoredRuleset) (rules.Facts, error) {
+        return factsProviderDB.GetFacts(ctx, rs.ID)
+    }
 
-	addr := ":8080"
-	if p := os.Getenv("PORT"); p != "" {
-		addr = ":" + p
-	}
+    // --- HTTP routes ---
+    mux := http.NewServeMux()
+    mux.HandleFunc("/health", health)
+    mux.HandleFunc("GET /api/rulesets", handlers.ListRulesets(db))
+    mux.HandleFunc("POST /api/rulesets", handlers.CreateRuleset(db))
+    mux.HandleFunc("GET /api/rules", handlers.ListRules(db))
+    mux.HandleFunc("POST /api/rules", handlers.CreateRule(db))
+    mux.HandleFunc("POST /api/evaluate", handlers.Evaluate(db))
 
-	log.Printf("listening on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
-		log.Fatal(err)
-	}
+    // --- Scheduler ---
+    ctx := context.Background()
+    scheduler := schedulers.New(db, factsProvider)
+    scheduler.Start(ctx)
 
+    // --- Server ---
+    addr := ":8080"
+    if p := os.Getenv("PORT"); p != "" {
+        addr = ":" + p
+    }
+
+    log.Printf("listening on %s", addr)
+    if err := http.ListenAndServe(addr, mux); err != nil {
+        log.Fatal(err)
+    }
 }
 
-func factsProvider(ctx context.Context, rs storage.StoredRuleset) (rules.Facts, error) {
-	return rules.Facts{
-		"city": "Seattle",
-	}, nil
-}
 
 func health(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
