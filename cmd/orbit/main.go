@@ -33,6 +33,14 @@ func main() {
         return factsProviderDB.GetFacts(ctx, rs.ID)
     }
 
+    // --- Create cancellable root context ---
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    // --- Handle OS signals for graceful shutdown ---
+    sigCh := make(chan os.Signal, 1)
+    signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
     // --- HTTP routes ---
     mux := http.NewServeMux()
     mux.HandleFunc("/health", health)
@@ -43,7 +51,6 @@ func main() {
     mux.HandleFunc("POST /api/evaluate", handlers.Evaluate(db))
 
     // --- Scheduler ---
-    ctx := context.Background()
     scheduler := schedulers.New(db, factsProvider)
     scheduler.Start(ctx)
 
@@ -53,10 +60,32 @@ func main() {
         addr = ":" + p
     }
 
-    log.Printf("listening on %s", addr)
-    if err := http.ListenAndServe(addr, mux); err != nil {
-        log.Fatal(err)
+    server := &http.Server{
+        Addr:    addr,
+        Handler: mux,
     }
+
+    go func() {
+        log.Printf("listening on %s", addr)
+        if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            log.Fatalf("HTTP server: %v", err)
+        }
+    }()
+
+    // --- Wait for shutdown signal ---
+    <-sigCh
+    log.Println("shutting down...")
+    cancel()
+   
+    shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer shutdownCancel()
+
+    if err := server.Shutdown(shutdownCtx); err != nil {
+        log.Printf("server shutdown error: %v", err)
+    }
+
+    log.Println("shutdown complete")
+
 }
 
 
