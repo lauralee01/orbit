@@ -73,16 +73,24 @@ func main() {
     }()
 
     // --- Wait for shutdown signal ---
+    // Wait for a shutdown signal (SIGINT/SIGTERM), then begin graceful shutdown.
+    // 1. Block until a signal is received.
+    // 2. Log that shutdown has started.
+    // 3. Cancel the root context so the scheduler and any background work stop.
+    // 4. Create a timeout‑bound context for shutting down the HTTP server.
+    // 5. Ask the server to shut down gracefully (finish in‑flight requests, stop accepting new ones).
+    // 6. Log any shutdown errors.
     <-sigCh
     log.Println("shutting down...")
     cancel()
-   
+
     shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer shutdownCancel()
 
     if err := server.Shutdown(shutdownCtx); err != nil {
         log.Printf("server shutdown error: %v", err)
     }
+
 
     log.Println("shutdown complete")
 
