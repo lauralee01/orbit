@@ -30,23 +30,6 @@ func asFloat64(v any) (float64, error) {
 }
 
 // equals performs a type‑aware equality comparison between a fact value and a rule value.
-// It supports three comparison modes:
-//
-//   1. Numeric comparison:
-//      If the fact value is numeric (int, float, etc.) AND the rule value parses as a float,
-//      both are compared numerically. This allows 30 and "30" to be treated as equal.
-//
-//   2. String comparison:
-//      If the fact value is a string, it is compared directly to the rule value.
-//
-//   3. Boolean comparison:
-//      If the fact value is a bool, the rule value is parsed as a boolean ("true"/"false")
-//      and compared accordingly.
-//
-//   4. Fallback comparison:
-//      For all other types, both values are stringified and compared as strings.
-//
-// This function returns true if the values are considered equal under these rules.
 
 func equals(factValue any, ruleValue string) bool {
 	// Numeric facts compare numerically when possible so 30 and "30" match.
@@ -68,13 +51,6 @@ func equals(factValue any, ruleValue string) bool {
 }
 
 // compareFloat performs a numeric comparison between a fact value and a rule value.
-// It does three things:
-//   1. Coerces the fact value (which may be float64, int, etc.) into a float64.
-//   2. Parses the rule's string value into a float64.
-//   3. Applies the provided comparison function (cmp) to determine if the rule passes.
-//
-// If the fact is not numeric, the rule value cannot be parsed, or the comparison fails,
-// it returns an ErrFactValueMismatch with a descriptive message.
 
 func compareFloat(factValue any, ruleValue, mismatchMsg string, cmp func(fv, rv float64) bool) error {
 	fv, err := asFloat64(factValue)
@@ -92,22 +68,6 @@ func compareFloat(factValue any, ruleValue, mismatchMsg string, cmp func(fv, rv 
 }
 
 // Evaluate checks a set of facts against a list of rules.
-// It processes each rule sequentially and returns:
-//
-//   - (true, nil) if *all* rules pass
-//   - (false, error) as soon as any rule fails
-//
-// Rule evaluation is type-aware:
-//   - "equals" supports numeric, string, and boolean comparisons
-//   - numeric operators (>, <, >=, <=) require both sides to be numeric
-//
-// Errors are descriptive and include:
-//   - ErrMissingFact when a required fact is not present
-//   - ErrFactValueMismatch when a rule fails
-//   - ErrUnsupportedOperator for unknown operators
-//
-// This function short-circuits on the first failure, which keeps evaluation fast
-// and makes the returned error directly explain the reason for failure.
 
 func Evaluate(facts Facts, rules Rules) (bool, error) {
 	for _, rule := range rules {

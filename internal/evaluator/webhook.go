@@ -19,38 +19,39 @@ type WebhookPayload struct {
 }
 
 func SendWebhook(ctx context.Context, url string, payload WebhookPayload) {
-	jsonData, _ := json.Marshal(payload)
+    jsonData, _ := json.Marshal(payload)
 
-	postCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+    // Phase C3.2: short timeout for webhook delivery
+    postCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+    defer cancel()
 
-	req, _ := http.NewRequestWithContext(postCtx, http.MethodPost, url, bytes.NewReader(jsonData))
-	req.Header.Set("Content-Type", "application/json")
+    req, _ := http.NewRequestWithContext(postCtx, http.MethodPost, url, bytes.NewReader(jsonData))
+    req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Printf(
-			"webhook: ruleset_id=%d trigger=%s error=%v",
-			payload.RulesetID,
-			payload.TriggerSource,
-			err,
-		)
-		return
-	}
+    // Use a client with a timeout instead of http.DefaultClient
+    client := &http.Client{
+        Timeout: 3 * time.Second,
+    }
 
-	resp.Body.Close()
+    resp, err := client.Do(req)
+    if err != nil {
+        log.Printf(
+            "webhook delivery: ruleset_id=%d trigger=%s status=0 error=%v",
+            payload.RulesetID,
+            payload.TriggerSource,
+            err,
+        )
+        return
+    }
+    defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Printf(
-			"webhook: ruleset_id=%d trigger=%s status=%d",
-			payload.RulesetID,
-			payload.TriggerSource,
-			resp.StatusCode,
-		)
-	} else {
-		resp.Body.Close()
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			log.Printf("webhook: bad status: %s", resp.Status)
-		}
-	}
+    // Log structured result
+    log.Printf(
+        "webhook delivery: ruleset_id=%d trigger=%s status=%d error=%v",
+        payload.RulesetID,
+        payload.TriggerSource,
+        resp.StatusCode,
+        nil,
+    )
 }
+
