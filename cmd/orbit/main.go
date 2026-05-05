@@ -50,8 +50,16 @@ func main() {
     mux.HandleFunc("POST /api/rules", handlers.CreateRule(db))
     mux.HandleFunc("POST /api/evaluate", handlers.Evaluate(db))
 
+     // --- Scheduler interval config (Phase C3.4) ---
+     interval := time.Minute
+     if v := os.Getenv("SCHEDULER_INTERVAL"); v != "" {
+         if d, err := time.ParseDuration(v); err == nil {
+             interval = d
+         }
+     }
+ 
     // --- Scheduler ---
-    scheduler := schedulers.New(db, factsProvider)
+    scheduler := schedulers.New(db, factsProvider, interval)
     scheduler.Start(ctx)
 
     // --- Server ---
@@ -74,12 +82,6 @@ func main() {
 
     // --- Wait for shutdown signal ---
     // Wait for a shutdown signal (SIGINT/SIGTERM), then begin graceful shutdown.
-    // 1. Block until a signal is received.
-    // 2. Log that shutdown has started.
-    // 3. Cancel the root context so the scheduler and any background work stop.
-    // 4. Create a timeout‑bound context for shutting down the HTTP server.
-    // 5. Ask the server to shut down gracefully (finish in‑flight requests, stop accepting new ones).
-    // 6. Log any shutdown errors.
     <-sigCh
     log.Println("shutting down...")
     cancel()

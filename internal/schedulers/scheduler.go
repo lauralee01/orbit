@@ -30,11 +30,12 @@ type Scheduler struct {
 	mu            sync.Mutex             // Protects entries + lastSpec from concurrent access
 	entries       map[int64]cron.EntryID // Maps ruleset ID → cron job ID (so we can remove/update jobs)
 	lastSpec      map[int64]string       // Tracks last cron spec used for each ruleset (detects changes)
+	interval      time.Duration
 }
 
 // New creates a new Scheduler instance.
 // It initializes the cron engine and internal maps.
-func New(db *sql.DB, factsProvider FactsProvider) *Scheduler {
+func New(db *sql.DB, factsProvider FactsProvider, interval time.Duration) *Scheduler {
 	return &Scheduler{
 		db:            db,
 		cron:          cron.New(), // Create a new cron scheduler
@@ -42,6 +43,7 @@ func New(db *sql.DB, factsProvider FactsProvider) *Scheduler {
 		dispatcher:    &evaluator.DirectDispatcher{DB: db},
 		entries:       make(map[int64]cron.EntryID),
 		lastSpec:      make(map[int64]string),
+		interval:      interval,
 	}
 }
 
@@ -59,7 +61,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 	}
 
 	// Periodically refresh schedules so changes in DB take effect automatically
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(s.interval)
 	go func() {
 		defer ticker.Stop()
 
